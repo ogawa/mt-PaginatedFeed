@@ -179,6 +179,8 @@ sub hdlr_entries {
     my @entries = @$entries;
 
     my @res;
+    my $tokens = $ctx->stash('tokens');
+    my $builder = $ctx->stash('builder');
     my($last_day, $next_day) = ('00000000') x 2;
     my $i = 0;
     for my $e (@entries) {
@@ -194,7 +196,7 @@ sub hdlr_entries {
 	} else {
 	    $footer++;
 	}
-	my $out = $builder->build($ctx, $tok, {
+	my $out = $builder->build($ctx, $tokens, {
 	    %$cond,
 	    DateHeader => ($this_day ne $last_day),
 	    DateFooter => $footer,
