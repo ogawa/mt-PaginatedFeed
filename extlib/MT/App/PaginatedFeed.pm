@@ -106,6 +106,7 @@ sub init_handlers {
     for my $name (keys %Handlers) {
 	MT::Template::Context->add_tag($name, $Handlers{$name});
     }
+    MT::Template::Context->add_container_tag('PaginatedFeedEntries', \&hdlr_entries);
 }
 
 sub hdlr_version	{ $VERSION }
@@ -170,6 +171,43 @@ sub _pfeed_url {
 	'&format=' . ($args->{format} || $ctx->stash('PFeed:format')) .
 	'&startIndex=' . ($args->{startIndex} || $ctx->stash('PFeed:startIndex')) .
 	'&maxResults=' . ($args->{maxResults} || $ctx->stash('PFeed:maxResults'));
+}
+
+sub hdlr_entries {
+    my ($ctx, $args, $cond) = @_;
+    my $entries = $ctx->stash('entries');
+    my @entries = @$entries;
+
+    my @res;
+    my($last_day, $next_day) = ('00000000') x 2;
+    my $i = 0;
+    for my $e (@entries) {
+	local $ctx->{__stash}{entry} = $e;
+	local $ctx->{current_timestamp} = $e->created_on;
+	local $ctx->{modification_timestamp} = $e->modified_on;
+	my $this_day = substr $e->created_on, 0, 8;
+	my $next_day = $this_day;
+	my $footer = 0;
+	if (defined $entries[$i+1]) {
+	    $next_day = substr($entries[$i+1]->created_on, 0, 8);
+	    $footer = $this_day ne $next_day;
+	} else {
+	    $footer++;
+	}
+	my $out = $builder->build($ctx, $tok, {
+	    %$cond,
+	    DateHeader => ($this_day ne $last_day),
+	    DateFooter => $footer,
+	    EntriesHeader => !$i,
+	    EntriesFooter => !defined $entries[$i+1],
+	});
+	return $ctx->error($builder->errstr) unless defined $out;
+	$last_day = $this_day;
+	push @res, $out;
+	$i++;
+    }
+    my $glue = $args->{glue} || '';
+    join $glue, @res;
 }
 
 1;
